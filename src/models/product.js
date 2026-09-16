@@ -4,7 +4,7 @@ const products = new Map();
 
 export const ProductModel = {
   findAll: (filters = {}) => {
-    let result = Array.from(products.values());
+    let result = Array.from(products.values()).filter(p => p.archivedAt === null);
 
     if (filters.category) {
       result = result.filter(p => p.category === filters.category);
@@ -12,15 +12,30 @@ export const ProductModel = {
     if (filters.status) {
       result = result.filter(p => p.status === filters.status);
     }
-    if (filters.name) {
-      result = result.filter(p => p.name.toLowerCase().includes(filters.name.toLowerCase()));
+    if (filters.minPrice !== undefined) {
+      result = result.filter(p => p.price >= parseFloat(filters.minPrice));
+    }
+    if (filters.maxPrice !== undefined) {
+      result = result.filter(p => p.price <= parseFloat(filters.maxPrice));
+    }
+    if (filters.inStock !== undefined) {
+      const isInStock = filters.inStock === 'true';
+      result = result.filter(p => isInStock ? p.stock > 0 : p.stock === 0);
+    }
+    if (filters.search) {
+      const searchStr = filters.search.toLowerCase();
+      result = result.filter(p =>
+        p.name.toLowerCase().includes(searchStr) ||
+        p.description.toLowerCase().includes(searchStr)
+      );
     }
 
     return result;
   },
 
   findById: (id) => {
-    return products.get(id);
+    const product = products.get(id);
+    return (product && product.archivedAt === null) ? product : null;
   },
 
   findBySku: (sku) => {
@@ -43,6 +58,7 @@ export const ProductModel = {
       stock: parseInt(data.stock, 10),
       status: data.status || 'active',
       createdAt: new Date(),
+      archivedAt: null,
     };
 
     products.set(product.id, product);
@@ -73,6 +89,20 @@ export const ProductModel = {
   },
 
   delete: (id) => {
-    return products.delete(id);
+    const product = products.get(id);
+    if (!product) return false;
+
+    product.archivedAt = new Date();
+    products.set(id, product);
+    return true;
+  },
+
+  restore: (id) => {
+    const product = products.get(id);
+    if (!product || product.archivedAt === null) return null;
+
+    product.archivedAt = null;
+    products.set(id, product);
+    return product;
   },
 };
